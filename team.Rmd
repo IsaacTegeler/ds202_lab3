@@ -1,0 +1,6 @@
+---
+title: "Team Report Lab 3"
+author: "Isaac Tegeler"
+date: "9/22/2020"
+output: html_document
+---
