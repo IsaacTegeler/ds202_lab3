@@ -5,3 +5,140 @@ date: "9/22/2020"
 output: html_document
 ---
 
+load data:
+
+```{r}
+library(readxl)
+library(ggplot2)
+library(dplyr)
+data <- readxl::read_xls('GSS.xls')
+colnames(data)[9] <- "Education"
+colnames(data)[6] <- "Party"
+colnames(data)[4] <- "Enviroment"
+colnames(data)[1] <- "Year"
+data$`Education` <- as.numeric(data$Education)
+
+```
+
+## Part 2
+
+**1.**
+Find the average years of education for the respondents with each political party affiliation. Arrange your output in a meaningful order and print. Describe any patterns you find.
+
+```{r}
+data %>% 
+  group_by(`Party`) %>%
+  na.omit() %>%
+  summarise(mean = mean(Education, na.rm = TRUE)) %>%
+  arrange(mean)
+```
+
+The data shows that on average those who are independent / don't know what party have the lowest number of years in school, democrats have the second shortest number of years, and republicans the most. Those that are from smaller 3rd parties have the second most years of education.
+
+**2.**
+Create a single data frame containing records for the better educated respondents in each political party affiliation. A “better educated” respondent is someone who has strictly more years of education than the median in the same party affiliation. Print the structure of the data frame.
+
+```{r}
+best_ed <- data %>% 
+  group_by(Party) %>%
+  filter(Education >= median(Education, na.rm = TRUE)) %>%
+  ungroup()
+
+str(best_ed)
+```
+
+3. How is the happiness of a respondent related to his/her marriage status? Define that a person is happy if the response to question is “Very happy” or “Pretty happy”.
+
+```{r}
+happy_tr <- function(arg_1){
+  ifelse(arg_1 == "Pretty happy" | arg_1 == "Very happy", "Happy", "Unhappy")
+}
+happy <- data %>%
+  na.omit %>%
+  mutate(Happiness = happy_tr(`General happiness`)) %>%
+  group_by(`Marital status`, Happiness) %>%
+  summarise(count = n()) %>%
+  mutate(total = sum(count)) %>%
+  ungroup()
+
+ggplot(happy, aes(x=`Marital status`,y=count/total, fill=Happiness)) + geom_bar(stat="identity", position=position_dodge()) + ylab("Percent responded")
+
+happy
+  
+```
+
+In the plot above the data has been noramalized for comparison. We can see that the marital status that is the happiest are those that are married, and the most unhappy are those that are seperated/didn't answer. One could draw the conclusion that being married has the chance to make you happier, but if it ends poorly where your spouse dies or you divorce you will be cursed to be less happy for the rest of your life. It is not garunteed as generally most people are happy with their life.
+
+4. Does party affiliation affect the relationship you found in the last question?
+
+```{r}
+happy_tr <- function(arg_1){
+  ifelse(arg_1 == "Pretty happy" | arg_1 == "Very happy", "Happy", "Unhappy")
+}
+happy <- data %>%
+  na.omit %>%
+  mutate(Happiness = happy_tr(`General happiness`)) %>%
+  group_by(Party, `Marital status`, Happiness) %>%
+  filter(Party != "Don't know") %>%
+  filter(`Marital status` != "No answer") %>%
+  summarise(count = n()) %>%
+  mutate(total = sum(count)) %>%
+  mutate(perecent = count/total) %>%
+  ungroup()
+
+ggplot(happy, aes(x=`Marital status`,y=count/total, fill=Happiness)) + geom_bar(stat="identity", position=position_dodge()) + ylab("Percent responded") + theme(axis.text.x=element_text(angle=90,vjust=0.25, hjust=.5)) + facet_wrap(~Party)
+
+happy
+```
+
+The trend seems to be the same regardless of which party you are from, however it is clear that republicans are much more unhappy than the rest if they are seperated. And a bit happier when they are married.
+
+5. How is marital status related to the education of a respondent? What are possible reasons accounting for the patterns you see?
+
+```{r}
+m_ed <- data %>%
+  na.omit %>%
+  group_by(`Marital status`) %>%
+  filter(`Marital status` != "No answer") %>%
+  summarise(average_ed=mean(Education))
+
+  
+ggplot(m_ed, aes(x=`Marital status`, y=average_ed)) +geom_bar(stat="identity")
+  
+```
+
+On average those that are never married are the most educated, and those that are widowed are the least educated. One cause of this trend could be that those who are the most educated spend all of their time doing school, or research and as a result never had time to get into a relationship and get married. Those that are widowed could be older and did not need as many years of education growing up. As a result they have on average fewer years of education.
+
+6. Explore two more interesting questions, and answer those questions using the GSS data.
+
+q1: Is there a party divide on how much we are doing for the environment?
+q2: Has that changed over time?
+
+```{r}
+envirom <- data %>%
+  filter(Enviroment != "Not applicable" & Enviroment != "No answer") %>%
+  filter(Party != "Don't know" & Party != "No answer") %>%
+  group_by(Party, Enviroment) %>%
+  summarise(count = n()) %>%
+  mutate(total = sum(count)) %>%
+  ungroup()
+
+ggplot(envirom, aes(x=Party, y=count/total, fill=Enviroment)) + geom_bar(stat="identity", position=position_dodge()) + theme(axis.text.x=element_text(angle=90,vjust=0, hjust=0)) + ylab("Percent of Respondants")
+
+```
+
+In this plot you can clearly see that while the overwhelming majority of people think that we are not doing enough for environmental protection, those who identify as republican are more split where only a slight majority think so. Additionally those that identify as republican have a much higher percentage that think we are doing to much. This is in sharp contrast to the trends of all other parties, and even in strong contrast to those that are not strong republicans. This makes you wonder if this is a recent trend that people think that we are not doing enough, or a recent development. The second plot should answer this second question.
+
+```{r}
+envirom <- data %>%
+  filter(Enviroment != "Not applicable" & Enviroment != "No answer") %>%
+  filter(Party != "Don't know" & Party != "No answer") %>%
+  group_by(Year, Party, Enviroment) %>%
+  summarise(count = n()) %>%
+  mutate(total = sum(count)) %>%
+  ungroup()
+
+ggplot(envirom, aes(x=Year, y=count/total, col=Enviroment)) + geom_line() + facet_wrap(~Party) + ylab("Perecent of Respondants")
+```
+
+It appears that there was a large spike in concern about the environment in the 90s and recently it has also begun to go back up even for strong republicans. The only party that has not seen an increase lately is those that report as other. This is likly due to the lack of data for other party wich results in a difference in trend between all other parties.
